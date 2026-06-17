@@ -1,0 +1,44 @@
+name: Atualizar Painel
+
+on:
+  workflow_dispatch:          # botão manual na aba Actions do GitHub
+    inputs:
+      motivo:
+        description: "Motivo da atualização (opcional)"
+        required: false
+        default: "Atualização manual"
+
+permissions:
+  contents: write             # necessário para fazer push do index.html gerado
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Gerar painel (ler Sheets → gravar docs/index.html)
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SPREADSHEET_ID:              ${{ secrets.SPREADSHEET_ID }}
+          SHEET_NAME:                  ${{ secrets.SHEET_NAME }}
+        run: python build.py
+
+      - name: Commitar e publicar
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/index.html
+          # só faz commit se houver mudança real
+          git diff --cached --quiet || git commit -m "painel: atualização automática $(date -u '+%d/%m/%Y %H:%M UTC')"
+          git push
